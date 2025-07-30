@@ -1,28 +1,36 @@
-name: CI Pipeline
+name: CI/CD Build and Deploy
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build-test:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Setup Python
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: 3.11
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      run: pip install pytest
 
-    - name: Run tests
+    - name: Run Unit Tests
       run: pytest
+
+    - name: Create Build (Zip the code)
+      run: |
+        mkdir output
+        cp *.py output/
+        zip -r build-artifact.zip output/
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-zip
+        path: build-artifact.zip
