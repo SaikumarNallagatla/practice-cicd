@@ -3,12 +3,12 @@ name: Deploy to AWS S3 with Manual Approval
 on:
   push:
     branches:
-      - main  # Trigger only when code is pushed to main
+      - main  # trigger only on main branch
 
 env:
-  AWS_S3_BUCKET: justcausaualbucket01
+  AWS_S3_BUCKET: justcausaualbucket78
   AWS_REGION: us-east-1
-  SOURCE_DIR: .  # Update if you want to upload specific folder
+  SOURCE_DIR: .
 
 jobs:
   build-and-upload:
@@ -26,12 +26,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
 
       - name: Run tests
         run: |
-          if [ -f test_main.py ]; then python -m unittest discover; fi
+          python -m unittest discover
 
       - name: Zip the code
         run: |
@@ -40,7 +39,7 @@ jobs:
       - name: Upload to S3 (Staging)
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --acl public-read
+          args: --delete --exclude ".git/*"
         env:
           AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
