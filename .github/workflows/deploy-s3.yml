@@ -3,7 +3,12 @@ name: Deploy to AWS S3 with Manual Approval
 on:
   push:
     branches:
-      - main
+      - main  # trigger only on main branch
+
+env:
+  AWS_S3_BUCKET: justcausaualbucket78
+  AWS_REGION: us-east-1
+  SOURCE_DIR: .
 
 jobs:
   build-and-upload:
@@ -20,10 +25,12 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
 
       - name: Run tests
-        run: python -m unittest discover
+        run: |
+          python -m unittest discover
 
       - name: Zip the code
         run: |
@@ -32,12 +39,12 @@ jobs:
       - name: Upload to S3 (Staging)
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --acl public-read
+          args: --delete --exclude ".git/*"
         env:
-          AWS_S3_BUCKET: justcausaualbucket01
+          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
+          AWS_REGION: ${{ env.AWS_REGION }}
           SOURCE_DIR: .
           DEST_DIR: staging/
 
@@ -47,13 +54,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://s3.console.aws.amazon.com/s3/buckets/justcausaualbucket78/production/
+      url: https://s3.console.aws.amazon.com/s3/buckets/${{ env.AWS_S3_BUCKET }}/production/
 
     steps:
       - name: Copy from Staging to Production
         run: |
-          aws s3 cp s3://justcausaualbucket78/staging/app.zip s3://justcausaualbucket78/production/app.zip
+          aws s3 cp s3://${{ env.AWS_S3_BUCKET }}/staging/app.zip s3://${{ env.AWS_S3_BUCKET }}/production/app.zip
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-1
+          AWS_REGION: ${{ env.AWS_REGION }}
