@@ -3,15 +3,15 @@ name: CI-CD Pipeline for feature/deploy-to-s3
 on:
   push:
     branches:
-      - feature/deploy-to-s3   # listens only to this exact branch
-  workflow_dispatch:           # optional: allows manual trigger from GitHub UI
+      - feature/deploy-to-s3
+  workflow_dispatch:
 
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -27,16 +27,18 @@ jobs:
         run: |
           python test_main.py
 
-      - name: Zip project
+      - name: Zip the app
         run: |
           zip -r app.zip main.py requirements.txt test_main.py
 
-      - name: Upload artifact to S3 (staging)
-        uses: aws-actions/aws-s3@v1
+      - name: Upload to S3 (staging)
+        uses: jakejarvis/s3-sync-action@master
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          region: us-east-1
-          bucket: justcausaualbucket78
-          source: app.zip
-          destination: staging/app.zip
+          args: --acl private --follow-symlinks
+          source_dir: .        # uploads from current directory (including app.zip)
+          destination_dir: staging/
+        env:
+          AWS_S3_BUCKET: justcausaualbucket78
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
