@@ -1,8 +1,5 @@
-def lambda_handler(event=None, context=None):
-    return {
-        'statusCode': 200,
-        'body': 'Hello from DevOps Baby!'
-    }
+def greet(name):
+    return f"Hello, {name}!"
 
 if __name__ == "__main__":
-    print("Deploy to S3 test successful!")
+    print(greet("Baby"))

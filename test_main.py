@@ -1,4 +1,9 @@
+import unittest
 from main import greet
 
-def test_greet():
-    assert greet() == "Hello from DevOps CI/CD Pipeline!"
+class TestGreet(unittest.TestCase):
+    def test_greet(self):
+        self.assertEqual(greet("Baby"), "Hello, Baby!")
+
+if __name__ == '__main__':
+    unittest.main()
