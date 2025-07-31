@@ -1,6 +1,5 @@
-import unittest
-from main import greet
+from main import handler
 
-class TestGreet(unittest.TestCase):
-    def test_greet(self):
-        self.assertEqual(greet("Baby"), "Hello, Baby!")
+def test_handler():
+    response = handler()
+    assert response["message"] == "Hello from DevOps pipeline!"
