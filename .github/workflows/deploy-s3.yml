@@ -1,66 +1,39 @@
-name: Deploy to AWS S3 with Manual Approval
+name: CI/CD Pipeline
 
 on:
   push:
     branches:
-      - main  # trigger only on main branch
-
-env:
-  AWS_S3_BUCKET: justcausaualbucket78
-  AWS_REGION: us-east-1
-  SOURCE_DIR: .
+      - main
+      - feature
+  pull_request:
 
 jobs:
-  build-and-upload:
-    name: Build and Upload to S3 (Staging)
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          python-version: '3.10'
+          node-version: '18'
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: npm install
 
-      - name: Run tests
-        run: |
-          python -m unittest discover
+      - name: Build project
+        run: npm run build
 
-      - name: Zip the code
-        run: |
-          zip -r app.zip main.py requirements.txt test_main.py
-
-      - name: Upload to S3 (Staging)
+      - name: Deploy to S3 (Staging)
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --delete --exclude ".git/*"
+          args: --delete
         env:
-          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
+          AWS_S3_BUCKET: justcausaualbucket01
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-          SOURCE_DIR: .
-          DEST_DIR: staging/
-
-  deploy-to-prod:
-    name: Manual Approval & Deploy to Production
-    needs: build-and-upload
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://s3.console.aws.amazon.com/s3/buckets/${{ env.AWS_S3_BUCKET }}/production/
-
-    steps:
-      - name: Copy from Staging to Production
-        run: |
-          aws s3 cp s3://${{ env.AWS_S3_BUCKET }}/staging/app.zip s3://${{ env.AWS_S3_BUCKET }}/production/app.zip
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_REGION: us-east-1
+          SOURCE_DIR: build
+          DEST_DIR: staging
