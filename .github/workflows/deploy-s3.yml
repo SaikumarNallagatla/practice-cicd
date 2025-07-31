@@ -1,4 +1,4 @@
-name: CI-CD Pipeline for feature/deploy-to-s3
+name: Deploy to S3 with Approval
 
 on:
   push:
@@ -6,39 +6,61 @@ on:
       - feature/deploy-to-s3
   workflow_dispatch:
 
+env:
+  STAGING_BUCKET: justcausaualbucket01
+  PRODUCTION_BUCKET: justcausaualbucket78
+  ZIP_NAME: app.zip
+
 jobs:
-  build-and-upload:
+  build-and-upload-staging:
     runs-on: ubuntu-latest
+    environment: staging
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: 3.11
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run tests
-        run: |
-          python test_main.py
+        run: python test_main.py
 
-      - name: Zip the app
-        run: |
-          zip -r app.zip main.py requirements.txt test_main.py
+      - name: Zip application files
+        run: zip -r ${{ env.ZIP_NAME }} main.py requirements.txt test_main.py
 
-      - name: Upload to S3 (staging)
+      - name: Upload to S3 (Staging)
         uses: jakejarvis/s3-sync-action@master
         with:
-          args: --acl private --follow-symlinks
-          source_dir: .        # uploads from current directory (including app.zip)
-          destination_dir: staging/
+          args: --acl public-read
+          bucket: ${{ env.STAGING_BUCKET }}
+          source_dir: .
+          target_dir: staging/
         env:
-          AWS_S3_BUCKET: justcausaualbucket78
+          AWS_S3_BUCKET: ${{ env.STAGING_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+
+  manual-approval-and-deploy-prod:
+    needs: build-and-upload-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://s3.console.aws.amazon.com/s3/buckets/justcausaualbucket78
+
+    steps:
+      - name: Download app.zip from staging
+        run: aws s3 cp s3://${{ env.STAGING_BUCKET }}/staging/${{ env.ZIP_NAME }} .
+
+      - name: Upload to S3 (Production)
+        run: aws s3 cp ${{ env.ZIP_NAME }} s3://${{ env.PRODUCTION_BUCKET }}/production/${{ env.ZIP_NAME }}
+        env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1
