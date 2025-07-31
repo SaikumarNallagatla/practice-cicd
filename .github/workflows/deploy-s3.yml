@@ -1,43 +1,67 @@
-name: Deploy to S3
+name: Deploy to AWS S3 with Manual Approval
 
 on:
   push:
     branches:
-      - main  # or your target branch
+      - main  # Trigger only when code is pushed to main
 
 env:
-  AWS_S3_BUCKET: justcausaualbucket78
+  AWS_S3_BUCKET: justcausaualbucket01
   AWS_REGION: us-east-1
-  SOURCE_DIR: .  # update this if you only want to upload a subfolder
+  SOURCE_DIR: .  # Update if you want to upload specific folder
 
 jobs:
-  deploy:
+  build-and-upload:
+    name: Build and Upload to S3 (Staging)
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Run tests
+        run: |
+          if [ -f test_main.py ]; then python -m unittest discover; fi
 
-    - name: Upload to S3
-      run: |
-        aws s3 sync ${{ env.SOURCE_DIR }} s3://${{ env.AWS_S3_BUCKET }} \
-          --region ${{ env.AWS_REGION }} \
-          --follow-symlinks \
-          --delete
+      - name: Zip the code
+        run: |
+          zip -r app.zip main.py requirements.txt test_main.py
+
+      - name: Upload to S3 (Staging)
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --acl public-read
+        env:
+          AWS_S3_BUCKET: ${{ env.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          SOURCE_DIR: .
+          DEST_DIR: staging/
+
+  deploy-to-prod:
+    name: Manual Approval & Deploy to Production
+    needs: build-and-upload
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://s3.console.aws.amazon.com/s3/buckets/${{ env.AWS_S3_BUCKET }}/production/
+
+    steps:
+      - name: Copy from Staging to Production
+        run: |
+          aws s3 cp s3://${{ env.AWS_S3_BUCKET }}/staging/app.zip s3://${{ env.AWS_S3_BUCKET }}/production/app.zip
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
