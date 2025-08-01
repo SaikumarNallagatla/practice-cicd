@@ -9,8 +9,8 @@ on:
 
 env:
   REGION: us-east-1
-  STAGE_BUCKET: justcausaualbucket01
-  PROD_BUCKET: justcausaualbucket-prod01
+  STAGE_BUCKET: justcausaualbucket02
+  PROD_BUCKET: justcausaualbucket-prod02
 
 jobs:
   deploy:
