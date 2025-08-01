@@ -1,50 +1,59 @@
-name: Deploy to S3
+name: Deploy to S3 Buckets
 
 on:
   push:
     branches:
       - main
-    paths:
-      - 'app.zip'
-
-env:
-  REGION: us-east-1
-  STAGE_BUCKET: justcausaualbucket02
-  PROD_BUCKET: justcausaualbucket-prod02
+      - feature/deploy-to-s3
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Choose environment to deploy'
+        required: true
+        default: 'stage'
+        type: choice
+        options:
+          - stage
+          - production
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        environment: [stage, production]
+    environment:
+      name: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production') || 'stage' }}
+      url: https://s3.console.aws.amazon.com/s3/buckets/${{ steps.set-bucket.outputs.bucket }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment variables
+      - name: Set environment-specific S3 bucket
+        id: set-bucket
         run: |
-          if [[ "${{ matrix.environment }}" == "production" ]]; then
-            echo "BUCKET_NAME=${{ env.PROD_BUCKET }}" >> $GITHUB_ENV
+          if [[ "${{ github.event.inputs.environment }}" == "production" || "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "bucket=justcausaualbucket-prod01" >> $GITHUB_OUTPUT
           else
-            echo "BUCKET_NAME=${{ env.STAGE_BUCKET }}" >> $GITHUB_ENV
+            echo "bucket=justcausaualbucket01" >> $GITHUB_OUTPUT
           fi
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.REGION }}
+          aws-region: us-east-1
 
-      - name: Upload ZIP to S3
+      - name: Upload app.zip to specific environment bucket
         uses: jakejarvis/s3-sync-action@master
         with:
           args: --acl private --follow-symlinks --exclude "*" --include "app.zip"
         env:
-          AWS_S3_BUCKET: ${{ env.BUCKET_NAME }}
-          AWS_REGION: ${{ env.REGION }}
-          SOURCE_DIR: ./
+          AWS_S3_BUCKET: ${{ steps.set-bucket.outputs.bucket }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          SOURCE_DIR: "./"
 
+      - name: Deployment Success
+        run: echo "🎉 Deployment to ${{ steps.set-bucket.outputs.bucket }} successful!"
